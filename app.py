@@ -109,9 +109,9 @@ selected = option_menu(
 
 # --- 1. EMPLOYEES ---
 if selected == "Employees":
-    st.subheader("?? Master Data: Employees")
+    st.subheader("👥 Master Data: Employees")
     
-    with st.expander("? Add / Edit Employee", expanded=False):
+    with st.expander("➕ Add / Edit Employee", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         eid = c1.text_input("Employee ID")
         fname = c2.text_input("First Name")
@@ -135,12 +135,12 @@ if selected == "Employees":
 
 # --- 2. PROJECTS ---
 elif selected == "Projects":
-    st.subheader("?? Master Data: Projects & Gantt")
+    st.subheader("🚀 Master Data: Projects & Gantt")
     
     t1, t2 = st.tabs(["Project List", "Gantt Chart"])
     
     with t1:
-        with st.expander("? New Project"):
+        with st.expander("➕ New Project"):
             c1, c2, c3 = st.columns(3)
             pid = c1.text_input("Project ID")
             pname = c2.text_input("Name")
@@ -191,7 +191,7 @@ elif selected == "Projects":
 
 # --- 3. CALENDAR ---
 elif selected == "Calendar":
-    st.subheader("?? Resource Availability")
+    st.subheader("📅 Resource Availability")
     
     # Layout: Controls on top
     c1, c2, c3 = st.columns([1, 1, 2])
@@ -199,7 +199,7 @@ elif selected == "Calendar":
     sel_emp = c1.selectbox("Select Resource", emps) if emps else None
     
     # Modify Availability
-    with c2.popover("??? Change Status"):
+    with c2.popover("🖊️ Change Status"):
         d_sel = st.date_input("Date(s)", value=[])
         status = st.selectbox("Set Status", ["Vacation", "Holiday", "Sick", "Working"])
         if st.button("Apply Change"):
@@ -266,7 +266,7 @@ elif selected == "Calendar":
 
 # --- 4. ASSIGNMENTS (MATRIX) ---
 elif selected == "Assignments":
-    st.subheader("?? Weekly Assignment Matrix (%)")
+    st.subheader("📌 Weekly Assignment Matrix (%)")
     
     # 1. Prepare Columns (Next 12 weeks for example)
     today = datetime.now()
@@ -306,7 +306,7 @@ elif selected == "Assignments":
         # EDITABLE EDITOR
         edited_df = st.data_editor(final_df, hide_index=True, use_container_width=True, num_rows="dynamic")
         
-        if st.button("?? Save Assignments"):
+        if st.button("💾 Save Assignments"):
             # Unpivot (Melt) back to DB format
             melted = edited_df.melt(id_vars=['Resource', 'Project'], var_name='week_start', value_name='percent')
             melted = melted[melted['percent'] > 0] # Store only positive assignments
@@ -323,7 +323,7 @@ elif selected == "Assignments":
 
 # --- 5. FINANCE ---
 elif selected == "Finance":
-    st.subheader("?? Financial Control")
+    st.subheader("💰 Financial Control")
     
     df_fin = run_query("""
         SELECT p.id_proj, p.budget, p.capex_opex,
@@ -339,7 +339,7 @@ elif selected == "Finance":
     # Visuals
     c1, c2 = st.columns([2, 1])
     with c1:
-        st.dataframe(df_fin.style.format({"budget": "�{:.2f}", "actual_cost": "�{:.2f}", "remaining": "�{:.2f}"}), use_container_width=True)
+        st.dataframe(df_fin.style.format({"budget": "€{:.2f}", "actual_cost": "€{:.2f}", "remaining": "€{:.2f}"}), use_container_width=True)
     with c2:
         if not df_fin.empty:
             fig = px.bar(df_fin, x='id_proj', y=['actual_cost', 'remaining'], title="Budget Usage", barmode='stack')
@@ -348,7 +348,7 @@ elif selected == "Finance":
 
 # --- 6. TIMESHEETS ---
 elif selected == "Timesheets":
-    st.subheader("?? Monthly Timesheets")
+    st.subheader("⏱️ Monthly Timesheets")
     
     c1, c2, c3 = st.columns(3)
     ts_month = c1.selectbox("Month", ["2023-11", "2023-12", "2024-01", "2024-02", "2024-03"])
@@ -381,7 +381,7 @@ elif selected == "Timesheets":
 
 # --- 7. DASHBOARDS ---
 elif selected == "Dashboards":
-    st.subheader("?? Analytics")
+    st.subheader("📊 Analytics")
     
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Headcount", len(run_query("SELECT * FROM employees")))
@@ -413,7 +413,7 @@ elif selected == "Dashboards":
 
 # --- 8. ADMIN ---
 elif selected == "Admin":
-    st.subheader("??? System Administration")
+    st.subheader("🛠️ System Administration")
     
     tab1, tab2 = st.tabs(["Dropdown Lists", "Backup & Restore"])
     
