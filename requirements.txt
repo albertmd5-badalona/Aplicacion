@@ -1,5 +1,4 @@
-streamlit
+flet
 pandas
 plotly
 openpyxl
-streamlit-antd-components
