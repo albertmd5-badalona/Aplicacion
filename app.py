@@ -9,56 +9,63 @@ import streamlit_antd_components as sac
 import json
 import calendar as cal_module
 
-# --- 1. CONFIGURACIÓN & CSS "BOSS EDITION" ---
-st.set_page_config(page_title="CorpResource v7", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. CONFIGURACIÓN & CSS "NUCLEAR STICKY" ---
+st.set_page_config(page_title="CorpApp v8", layout="wide", initial_sidebar_state="collapsed")
 
-# COLORES
+# PALETA DE COLORES CORPORATIVA AZUL
 C_NAV_BG = "#FFFFFF"
-C_TXT = "#2C3E50"     # Azul oscuro corporativo
-C_WORK = "#27AE60"    # Verde círculo
-C_VAC = "#3498DB"     # Azul vacaciones
-C_HOL = "#7F8C8D"     # Gris festivo
+C_TXT = "#2C3E50"     # Azul Navy
+C_ACCENT = "#3498DB"  # Azul Corporativo
+C_WORK = "#27AE60"    # Verde
+C_VAC = "#3498DB"     # Azul
+C_HOL = "#95A5A6"     # Gris
 
 st.markdown(f"""
 <style>
-    /* Ocultar elementos nativos */
-    header, footer, #MainMenu {{display: none !important;}}
-    
-    /* AJUSTE MILIMÉTRICO DEL CUERPO */
+    /* 1. OCULTAR LA CABECERA NATIVA DE STREAMLIT Y EL FOOTER */
+    header[data-testid="stHeader"] {{ display: none !important; }}
+    footer {{ display: none !important; }}
+    #MainMenu {{ display: none !important; }}
+
+    /* 2. EMPUJAR EL CONTENIDO HACIA ABAJO PARA QUE NO QUEDE TAPADO */
     .block-container {{
-        padding-top: 80px !important; /* Espacio reservado para la barra */
+        padding-top: 80px !important; /* Espacio reservado para tu barra */
         padding-bottom: 2rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
     }}
-    
-    /* --- LA BARRA FIJA REAL (STICKY NAVBAR) --- */
-    /* Apuntamos al contenedor específico donde pondremos el menú */
-    div[data-testid="stVerticalBlock"] > div:has(div.st-emotion-cache-1y4p8pa) {{
+
+    /* 3. LA BARRA FIJA (SOLUCIÓN DEFINITIVA) */
+    /* Creamos un contenedor flotante que ignora el scroll */
+    .sticky-nav-container {{
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
-        z-index: 999999;
-        background: {C_NAV_BG};
-        border-bottom: 1px solid #E0E0E0;
+        width: 100vw; /* Ancho total de la ventana */
+        height: 70px;
+        background-color: {C_NAV_BG};
+        z-index: 9999999; /* Capa superior absoluta */
+        border-bottom: 1px solid #dce4ec;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding-top: 10px;
-        padding-bottom: 5px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }}
+
+    /* AJUSTES VISUALES */
+    h3 {{ color: {C_TXT}; font-family: 'Helvetica Neue', sans-serif; margin-top: 0; }}
+    .stButton button {{ border-radius: 5px; }}
     
-    /* ESTILOS DE TEXTO Y BOTONES */
-    h3 {{ color: {C_TXT}; font-family: 'Segoe UI', sans-serif; font-size: 1.1rem; margin-top: 0; }}
-    
-    /* DATA EDITOR SIN ZOOM (Hack CSS) */
-    div[data-testid="stDataEditor"] table {{ font-size: 0.8rem; }}
+    /* HACK PARA QUE EL CALENDARIO NO SE VEA GIGANTE */
+    .js-plotly-plot {{ height: auto !important; }}
     
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. BASE DE DATOS (ROBUSTA) ---
+# --- 2. BASE DE DATOS ---
 def init_db():
-    conn = sqlite3.connect('corp_v7.db')
+    conn = sqlite3.connect('corp_v8.db')
     c = conn.cursor()
     tables = {
         'employees': ['id_emp TEXT PRIMARY KEY', 'first_name TEXT', 'last_name TEXT', 'rate REAL', 'dept TEXT'],
@@ -87,319 +94,292 @@ def get_opt(table, k, v):
     df = run_query(f"SELECT {k}, {v} FROM {table}")
     return {f"{row[v]} ({row[k]})": row[k] for i, row in df.iterrows()} if not df.empty else {}
 
-# --- 4. NAVEGACIÓN (DENTRO DE UN CONTAINER PARA EL CSS STICKY) ---
+# --- 4. RENDERIZADO DE LA BARRA FIJA ---
+# Usamos un contenedor st.markdown para inyectar el DIV fijo, y dentro metemos el menú.
+# TRUCO: Como Streamlit procesa en orden, primero inyectamos el div apertura, luego el menu, luego el cierre.
+
+st.markdown('<div class="sticky-nav-container">', unsafe_allow_html=True)
+# NOTA: El componente SAC se renderiza donde le toca. Para que "entre" visualmente en la barra, 
+# confiamos en que el CSS sticky-nav-container está posicionado encima. 
+# Pero SAC crea su propio iframe. El truco visual es el siguiente:
 with st.container():
-    # Este contenedor es el que el CSS "atrapa" y fija arriba
     selected = sac.segmented(
         items=[
-            sac.SegmentedItem(label='Employees', icon='person-lines-fill'),
+            sac.SegmentedItem(label='Employees', icon='person-vcard'),
             sac.SegmentedItem(label='Projects', icon='briefcase'),
-            sac.SegmentedItem(label='Availability', icon='calendar-check'), # Boton 2
+            sac.SegmentedItem(label='Availability', icon='calendar-week'),
             sac.SegmentedItem(label='Capacity Plan', icon='grid-3x3'),
-            sac.SegmentedItem(label='Finance', icon='bank'),
+            sac.SegmentedItem(label='Finance', icon='cash-coin'),
             sac.SegmentedItem(label='Timesheet', icon='clock'),
-            sac.SegmentedItem(label='Dashboard', icon='graph-up'),
+            sac.SegmentedItem(label='Dashboard', icon='bar-chart-line'),
             sac.SegmentedItem(label='Admin', icon='gear'),
         ],
-        label='', align='center', size='sm', radius='md', color='indigo', bg_color='transparent', use_container_width=True
+        label='', align='center', size='sm', radius='md', color='indigo', bg_color='transparent', use_container_width=False
     )
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. PÁGINAS ---
+
+# --- 5. LÓGICA DE PÁGINAS ---
 
 # A. EMPLOYEES
 if selected == "Employees":
     c1, c2 = st.columns([1, 3])
     with c1:
+        st.markdown("### 👤 New Profile")
         with st.container(border=True):
-            st.markdown("### 👤 Add Profile")
-            eid = st.text_input("ID", placeholder="E.g. EMP01")
-            fn = st.text_input("First Name")
-            ln = st.text_input("Last Name")
-            dept = st.selectbox("Department", ["Consulting", "Tech", "PMO", "Sales"])
-            rate = st.number_input("Rate (€/h)", value=50.0)
-            if st.button("Save", type="primary", use_container_width=True):
-                if eid: 
+            eid = st.text_input("ID", placeholder="E.g. EMP001")
+            fn = st.text_input("Name")
+            ln = st.text_input("Surname")
+            dept = st.selectbox("Department", ["Consulting", "Engineering", "Sales", "HR"])
+            rate = st.number_input("Rate (€/h)", value=45.0)
+            if st.button("Save Employee", type="primary", use_container_width=True):
+                if eid:
                     run_action("INSERT OR REPLACE INTO employees VALUES (?,?,?,?,?)", (eid, fn, ln, rate, dept))
-                    st.success("Saved")
+                    st.success("Saved successfully")
                     st.rerun()
     with c2:
-        st.markdown("### 👥 Staff List")
+        st.markdown("### 👥 Staff Directory")
         st.dataframe(run_query("SELECT * FROM employees"), use_container_width=True, hide_index=True)
 
 # B. PROJECTS
 elif selected == "Projects":
-    t1, t2 = st.tabs(["Setup", "Gantt"])
+    t1, t2 = st.tabs(["Project Setup", "Gantt View"])
     with t1:
         c1, c2 = st.columns([1, 3])
         with c1:
+            st.markdown("### 📁 Create Project")
             with st.container(border=True):
-                st.markdown("### 📁 New Project")
-                pid = st.text_input("Code")
-                pnm = st.text_input("Name")
-                bg = st.number_input("Budget", step=1000.0)
+                pid = st.text_input("Code", placeholder="PRJ-2024-X")
+                pnm = st.text_input("Project Name")
+                bg = st.number_input("Budget (€)", step=1000.0)
                 tp = st.selectbox("Type", ["OPEX", "CAPEX"])
-                if st.button("Create", type="primary", use_container_width=True):
+                if st.button("Save Project", type="primary", use_container_width=True):
                     run_action("INSERT OR REPLACE INTO projects VALUES (?,?,?,?)", (pid, pnm, bg, tp))
                     st.rerun()
         with c2:
             st.dataframe(run_query("SELECT * FROM projects"), use_container_width=True, hide_index=True)
     
     with t2:
+        st.markdown("### 📅 Interactive Gantt")
         p_map = get_opt("projects", "id_proj", "name")
         if p_map:
-            sel_p_lbl = st.selectbox("Select Project", list(p_map.keys()))
-            pid = p_map[sel_p_lbl]
+            c_sel, c_form = st.columns([1, 3])
+            curr_p_lbl = c_sel.selectbox("Select Project", list(p_map.keys()))
+            pid = p_map[curr_p_lbl]
             
-            with st.expander("➕ Add Task", expanded=False):
-                with st.form("gantt"):
+            with c_form.expander("➕ Add New Task", expanded=False):
+                with st.form("add_task_gantt"):
                     c1, c2, c3, c4, c5 = st.columns([3,2,2,2,1])
-                    tn = c1.text_input("Task")
+                    tn = c1.text_input("Task Name")
                     e_map = get_opt("employees", "id_emp", "first_name")
-                    asn = c2.selectbox("Who", list(e_map.keys()) if e_map else ["-"])
+                    asignee = c2.selectbox("Assignee", list(e_map.keys()) if e_map else ["Unassigned"])
                     d1 = c3.date_input("Start")
                     d2 = c4.date_input("End")
                     pg = c5.number_input("%", 0, 100, 0)
                     if st.form_submit_button("Add"):
-                        aid = e_map[asn] if e_map else ""
+                        aid = e_map[asignee] if e_map else ""
                         run_action("INSERT INTO tasks (id_proj, task_name, assigned_to, start_date, end_date, progress) VALUES (?,?,?,?,?,?)",
                                    (pid, tn, aid, str(d1), str(d2), pg))
                         st.rerun()
             
             df_t = run_query("SELECT * FROM tasks WHERE id_proj=?", (pid,))
             if not df_t.empty:
-                fig = px.timeline(df_t, x_start="start_date", x_end="end_date", y="task_name", color="progress", 
-                                  color_continuous_scale="Blues", title="")
+                fig = px.timeline(df_t, x_start="start_date", x_end="end_date", y="task_name", color="progress",
+                                  color_continuous_scale="Blues", height=300)
                 fig.update_yaxes(autorange="reversed")
-                fig.update_layout(height=300, margin=dict(t=10,b=10), paper_bgcolor='white', plot_bgcolor='white')
+                fig.update_layout(margin=dict(t=10,b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No tasks scheduled.")
 
-# C. AVAILABILITY (EL CALENDARIO DE CÍRCULOS)
+# C. AVAILABILITY (CIRCULOS Y CALENDARIO COMPACTO)
 elif selected == "Availability":
-    c_ctrl, c_cal = st.columns([1, 4])
+    c_ctrl, c_cal = st.columns([1, 3])
     e_map = get_opt("employees", "id_emp", "first_name")
     
     if e_map:
         with c_ctrl:
             st.markdown("### Resource")
-            sel_e_lbl = st.selectbox("Select", list(e_map.keys()))
-            eid = e_map[sel_e_lbl]
+            sel_e = st.selectbox("Select Employee", list(e_map.keys()))
+            eid = e_map[sel_e]
             
             st.markdown("---")
-            st.markdown("**Set Status:**")
-            with st.form("status_upd"):
-                dr = st.date_input("Date Range", value=[])
-                stt = st.radio("Type", ["Working (Green)", "Vacation (Blue)", "Holiday (Grey)"])
-                if st.form_submit_button("Apply Change", type="primary"):
+            st.caption("Update Availability")
+            with st.form("cal_upd"):
+                dr = st.date_input("Dates", value=[])
+                stt = st.radio("Status", ["Working (Clear)", "Vacation (Blue)", "Holiday (Grey)"])
+                if st.form_submit_button("Apply"):
                     if isinstance(dr, tuple) and len(dr)==2:
-                        s, e = dr
-                        while s <= e:
+                        s,e = dr
+                        while s<=e:
                             if "Working" in stt: run_action("DELETE FROM calendar WHERE id_emp=? AND date=?", (eid, str(s)))
                             else: 
                                 code = "V" if "Vacation" in stt else "H"
                                 run_action("INSERT OR REPLACE INTO calendar (id_emp, date, type) VALUES (?,?,?)", (eid, str(s), code))
                             s += timedelta(days=1)
                         st.rerun()
-
+        
         with c_cal:
-            # --- LOGICA DE VISUALIZACION DE CIRCULOS ---
-            st.markdown(f"### 📅 Calendar: {sel_e_lbl}")
-            
-            # Datos
+            st.markdown(f"### 🗓️ Calendar: {sel_e}")
             yr = datetime.now().year
             df_ex = run_query("SELECT date, type FROM calendar WHERE id_emp=?", (eid,))
             ex_dict = dict(zip(df_ex['date'], df_ex['type'])) if not df_ex.empty else {}
             
-            # Generar 12 Meses
+            # VISUALIZACIÓN DE PUNTOS (SCATTER)
             fig = go.Figure()
-            
-            # Coordenadas para subplots manuales (4 columnas x 3 filas)
-            # Usamos Scatter plots para dibujar los circulos
             months = list(range(1, 13))
-            cols_pos = [0, 1, 2, 3] * 3
-            rows_pos = [2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0] # Invertido para que Enero esté arriba
+            # Layout 4x3
+            cols_pos = [0,1,2,3] * 3
+            rows_pos = [2,2,2,2, 1,1,1,1, 0,0,0,0]
             
             for idx, m in enumerate(months):
-                # Calcular dias del mes
                 cal = cal_module.monthcalendar(yr, m)
-                x_vals = [] # Dia de la semana (0-6)
-                y_vals = [] # Semana del mes (0-5)
-                colors = [] # Color
-                hover = []
+                x_off = cols_pos[idx] * 8
+                y_off = rows_pos[idx] * 8
                 
-                # Offset para posicionar el mes en la grilla grande
-                x_offset = cols_pos[idx] * 8 # Espacio horizontal entre meses
-                y_offset = rows_pos[idx] * 8 # Espacio vertical
+                # Etiqueta Mes
+                fig.add_trace(go.Scatter(x=[x_off+3.5], y=[y_off+6.5], text=[cal_module.month_abbr[m]], mode="text", textfont=dict(color=C_TXT, size=10, weight='bold'), hoverinfo='skip'))
                 
-                # Titulo del mes (truco: punto invisible con texto)
-                fig.add_trace(go.Scatter(
-                    x=[x_offset + 3.5], y=[y_offset + 6.5],
-                    text=[cal_module.month_name[m]], mode="text",
-                    textfont=dict(size=12, color="#2C3E50", family="Arial Black"),
-                    hoverinfo="skip"
-                ))
-
-                # Dias
-                for week_idx, week in enumerate(cal):
-                    for day_idx, day in enumerate(week):
+                for w_idx, week in enumerate(cal):
+                    for d_idx, day in enumerate(week):
                         if day != 0:
-                            # Logica de Color
                             d_str = f"{yr}-{m:02d}-{day:02d}"
-                            is_weekend = day_idx >= 5
-                            
-                            c = "rgba(0,0,0,0)" # Transparente por defecto
-                            line_c = "rgba(0,0,0,0)"
+                            is_we = d_idx >= 5
+                            color = 'rgba(0,0,0,0)'
                             
                             if d_str in ex_dict:
-                                if ex_dict[d_str] == 'V': c = C_VAC
-                                else: c = C_HOL
-                            elif not is_weekend:
-                                c = C_WORK # Verde Circulo
+                                color = C_VAC if ex_dict[d_str]=='V' else C_HOL
+                            elif not is_we:
+                                color = C_WORK # Verde por defecto laborable
                             
-                            # Solo pintamos si no es fin de semana o si tiene excepcion
-                            if c != "rgba(0,0,0,0)" or is_weekend == False:
-                                x_vals.append(x_offset + day_idx)
-                                y_vals.append(y_offset + (5 - week_idx)) # Invertir Y
-                                colors.append(c)
-                                hover.append(f"{day}/{m}")
-
-                fig.add_trace(go.Scatter(
-                    x=x_vals, y=y_vals, mode='markers+text',
-                    marker=dict(size=14, color=colors, line=dict(width=0)),
-                    text=[h.split('/')[0] for h in hover], # Numero del dia
-                    textfont=dict(size=8, color="white"),
-                    hoverinfo='text', hovertext=hover
-                ))
-
+                            # Pintar solo si tiene color (es decir, ocultamos finde si no hay excepcion)
+                            if color != 'rgba(0,0,0,0)':
+                                fig.add_trace(go.Scatter(
+                                    x=[x_off + d_idx], 
+                                    y=[y_off + (5-w_idx)],
+                                    mode='markers+text',
+                                    marker=dict(size=12, color=color, line=dict(width=0)),
+                                    text=[str(day)], textfont=dict(color='white', size=7),
+                                    hoverinfo='text', hovertext=f"{day}/{m} - {color}"
+                                ))
+            
             fig.update_layout(
-                showlegend=False,
-                width=1000, height=700,
+                width=900, height=500, showlegend=False,
                 xaxis=dict(visible=False, range=[-1, 32]),
                 yaxis=dict(visible=False, range=[-1, 24]),
-                margin=dict(l=0,r=0,t=0,b=0),
-                plot_bgcolor='white'
+                margin=dict(l=0,r=0,t=0,b=0), plot_bgcolor='white'
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-            # Leyenda manual exquisita
-            st.caption(f"🟢 Working ({C_WORK}) | 🔵 Vacation ({C_VAC}) | ⚫ Holiday ({C_HOL}) | Weekends hidden")
+            st.caption("Leyenda: 🟢 Laborable | 🔵 Vacaciones | ⚫ Festivo")
 
-# D. CAPACITY PLAN
+# D. CAPACITY PLAN (EXCEL STYLE)
 elif selected == "Capacity Plan":
-    st.markdown("### 🔢 Capacity Matrix")
-    
-    # 12 Semanas
+    st.markdown("### 🔢 Capacity Planning Matrix")
     start_w = datetime.now() - timedelta(days=datetime.now().weekday())
-    weeks_col = [(start_w + timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(12)]
-    weeks_lbl = [(start_w + timedelta(weeks=i)).strftime('%d-%b') for i in range(12)]
+    weeks = [(start_w+timedelta(weeks=i)) for i in range(12)]
+    cols_sql = [w.strftime('%Y-%m-%d') for w in weeks]
+    cols_lbl = [w.strftime('%d-%b') for w in weeks]
     
-    # Datos
     df_e = run_query("SELECT id_emp, first_name FROM employees")
     df_p = run_query("SELECT id_proj, name FROM projects")
     
     if not df_e.empty and not df_p.empty:
-        # Estructura Base
-        idx = pd.MultiIndex.from_product([df_e['id_emp'], df_p['id_proj']], names=['eid','pid'])
-        df_base = pd.DataFrame(index=idx).reset_index()
+        # Generar Matriz
+        idx = pd.MultiIndex.from_product([df_e['id_emp'], df_p['id_proj']], names=['eid','pid']).to_frame(index=False)
+        idx['Resource'] = idx['eid'].map(dict(zip(df_e['id_emp'], df_e['first_name'])))
+        idx['Project'] = idx['pid'].map(dict(zip(df_p['id_proj'], df_p['name'])))
         
-        # Mapeo visual
-        e_d = dict(zip(df_e['id_emp'], df_e['first_name']))
-        p_d = dict(zip(df_p['id_proj'], df_p['name']))
-        df_base['Resource'] = df_base['eid'].map(e_d)
-        df_base['Project'] = df_base['pid'].map(p_d)
-        
-        # Valores
         vals = run_query("SELECT * FROM assignments")
         if not vals.empty:
             piv = vals.pivot(index=['id_emp','id_proj'], columns='week_start', values='percent').reset_index()
-            df_fin = pd.merge(df_base, piv, left_on=['eid','pid'], right_on=['id_emp','id_proj'], how='left')
-        else: df_fin = df_base
+            df_full = pd.merge(idx, piv, left_on=['eid','pid'], right_on=['id_emp','id_proj'], how='left')
+        else:
+            df_full = idx
         
-        # Columnas finales
-        for w in weeks_col: 
-            if w not in df_fin.columns: df_fin[w] = 0
+        for c in cols_sql: 
+            if c not in df_full.columns: df_full[c] = 0
             
-        cols = ['Resource','Project'] + weeks_col
-        df_show = df_fin[cols].fillna(0)
-        df_show.rename(columns=dict(zip(weeks_col, weeks_lbl)), inplace=True)
+        df_show = df_full[['Resource','Project'] + cols_sql].fillna(0)
+        df_show.rename(columns=dict(zip(cols_sql, cols_lbl)), inplace=True)
         
-        # Configuración NO ZOOM
+        # CONFIGURACION SIN ZOOM (NumberColumn)
         cfg = {"Resource": st.column_config.TextColumn(disabled=True), "Project": st.column_config.TextColumn(disabled=True)}
-        for w in weeks_lbl: cfg[w] = st.column_config.NumberColumn(step=10)
+        for c in cols_lbl: cfg[c] = st.column_config.NumberColumn(min_value=0, max_value=100, step=10)
         
-        ed = st.data_editor(df_show, hide_index=True, use_container_width=True, height=600, column_config=cfg)
+        edited = st.data_editor(df_show, hide_index=True, use_container_width=True, height=600, column_config=cfg)
         
-        if st.button("💾 Update Plan", type="primary"):
-            saved = ed.rename(columns=dict(zip(weeks_lbl, weeks_col)))
-            saved['id_emp'] = saved['Resource'].map({v:k for k,v in e_d.items()})
-            saved['id_proj'] = saved['Project'].map({v:k for k,v in p_d.items()})
+        if st.button("💾 Update Matrix", type="primary"):
+            save = edited.rename(columns=dict(zip(cols_lbl, cols_sql)))
+            # Recuperar IDs
+            e_map = dict(zip(df_e['first_name'], df_e['id_emp']))
+            p_map = dict(zip(df_p['name'], df_p['id_proj']))
+            save['eid'] = save['Resource'].map(e_map)
+            save['pid'] = save['Project'].map(p_map)
             
-            melt = saved.melt(id_vars=['id_emp','id_proj'], value_vars=weeks_col, var_name='wk', value_name='pct')
-            melt = melt[melt['pct']>0]
+            melted = save.melt(id_vars=['eid','pid'], value_vars=cols_sql, var_name='wk', value_name='pct')
+            melted = melted[melted['pct'] > 0]
             
-            for _, r in melt.iterrows():
+            for _, r in melted.iterrows():
                 run_action("INSERT OR REPLACE INTO assignments (id_proj, id_emp, week_start, percent) VALUES (?,?,?,?)",
-                           (r['id_proj'], r['id_emp'], r['wk'], r['pct']))
-            st.success("Updated")
+                           (r['pid'], r['eid'], r['wk'], r['pct']))
+            st.success("Plan Updated")
 
 # E. FINANCE
 elif selected == "Finance":
-    st.markdown("### 💶 Financial Overview")
+    st.markdown("### 💶 Financial Control")
     df = run_query("""
-        SELECT p.name, p.budget, COALESCE(SUM(t.hours * e.rate), 0) as consumed 
-        FROM projects p LEFT JOIN timesheets t ON p.id_proj=t.id_proj LEFT JOIN employees e ON t.id_emp=e.id_emp 
-        GROUP BY p.name""")
-    df['margin'] = df['budget'] - df['consumed']
-    
+        SELECT p.name, p.budget, COALESCE(SUM(t.hours*e.rate),0) as actual 
+        FROM projects p LEFT JOIN timesheets t ON p.id_proj=t.id_proj 
+        LEFT JOIN employees e ON t.id_emp=e.id_emp GROUP BY p.name
+    """)
+    df['margin'] = df['budget'] - df['actual']
     c1, c2 = st.columns(2)
     c1.dataframe(df.style.format("€{:,.0f}"), use_container_width=True)
-    fig = px.bar(df, x='name', y=['consumed','margin'], barmode='stack', color_discrete_sequence=['#2980B9', '#ECF0F1'])
-    fig.update_layout(plot_bgcolor='white')
-    c2.plotly_chart(fig, use_container_width=True)
+    c2.plotly_chart(px.bar(df, x='name', y=['actual','margin'], barmode='stack', color_discrete_sequence=[C_ACCENT, '#ECF0F1']), use_container_width=True)
 
 # F. TIMESHEET
 elif selected == "Timesheet":
-    st.markdown("### ⏱️ Log Hours")
-    c1, c2, c3 = st.columns(3)
+    st.markdown("### ⏱️ Monthly Hours")
+    c1,c2,c3 = st.columns(3)
     mo = c1.selectbox("Month", ["2024-01","2024-02","2024-03"])
-    emp_map = get_opt("employees", "id_emp", "first_name")
-    if emp_map:
-        sel_e = c2.selectbox("Employee", list(emp_map.keys()))
-        eid = emp_map[sel_e]
-        
-        prjs = run_query("SELECT id_proj, name FROM projects")
-        ex = run_query("SELECT id_proj, hours FROM timesheets WHERE id_emp=? AND month=?", (eid, mo))
+    e_map = get_opt("employees", "id_emp", "first_name")
+    if e_map:
+        sel_e = c2.selectbox("Employee", list(e_map.keys()))
+        eid = e_map[sel_e]
+        p_df = run_query("SELECT id_proj, name FROM projects")
+        ts = run_query("SELECT id_proj, hours FROM timesheets WHERE id_emp=? AND month=?", (eid,mo))
         
         dat = []
-        for _, row in prjs.iterrows():
-            h = ex[ex['id_proj']==row['id_proj']]['hours'].sum() if not ex.empty else 0.0
-            dat.append({"Project": row['name'], "PID": row['id_proj'], "Hours": h})
+        for _,r in p_df.iterrows():
+            h = ts[ts['id_proj']==r['id_proj']]['hours'].sum() if not ts.empty else 0.0
+            dat.append({"Project":r['name'], "PID":r['id_proj'], "Hours":h})
         
-        edited = st.data_editor(pd.DataFrame(dat), hide_index=True, use_container_width=True, column_config={"PID": None})
-        if st.button("Save", type="primary"):
-            for _, r in edited.iterrows():
-                run_action("DELETE FROM timesheets WHERE id_emp=? AND month=? AND id_proj=?", (eid, mo, r['PID']))
-                if r['Hours'] > 0: run_action("INSERT INTO timesheets (id_emp, month, id_proj, hours) VALUES (?,?,?,?)", (eid, mo, r['PID'], r['Hours']))
+        ed = st.data_editor(pd.DataFrame(dat), hide_index=True, use_container_width=True, column_config={"PID":None})
+        if st.button("Save Hours", type="primary"):
+            for _,r in ed.iterrows():
+                run_action("DELETE FROM timesheets WHERE id_emp=? AND month=? AND id_proj=?", (eid,mo,r['PID']))
+                if r['Hours']>0: run_action("INSERT INTO timesheets (id_emp,month,id_proj,hours) VALUES (?,?,?,?)",(eid,mo,r['PID'],r['Hours']))
             st.success("Saved")
 
 # G. DASHBOARD
 elif selected == "Dashboard":
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Active Projects", len(run_query("SELECT * FROM projects")))
-    tot_h = run_query("SELECT SUM(hours) as h FROM timesheets")['h'].iloc[0]
-    k2.metric("Total Hours", f"{tot_h:.0f}" if tot_h else "0")
-    bud = run_query("SELECT SUM(budget) as b FROM projects")['b'].iloc[0]
-    k3.metric("Budget Managed", f"€{bud:,.0f}" if bud else "0")
+    k1,k2,k3 = st.columns(3)
+    k1.metric("Total Projects", len(run_query("SELECT * FROM projects")))
+    h_tot = run_query("SELECT SUM(hours) as h FROM timesheets")['h'].iloc[0]
+    k2.metric("Hours Logged", f"{h_tot:.0f}" if h_tot else "0")
+    b_tot = run_query("SELECT SUM(budget) as b FROM projects")['b'].iloc[0]
+    k3.metric("Portfolio Value", f"€{b_tot:,.0f}" if b_tot else "0")
     
-    g1, g2 = st.columns(2)
-    df_h = run_query("SELECT p.name, SUM(t.hours) as h FROM timesheets t JOIN projects p ON t.id_proj=p.id_proj GROUP BY p.name")
-    if not df_h.empty: g1.plotly_chart(px.pie(df_h, values='h', names='name', hole=0.6, color_discrete_sequence=px.colors.sequential.Blues_r), use_container_width=True)
+    g1,g2 = st.columns(2)
+    df_pie = run_query("SELECT p.name, SUM(t.hours) as h FROM timesheets t JOIN projects p ON t.id_proj=p.id_proj GROUP BY p.name")
+    if not df_pie.empty: g1.plotly_chart(px.pie(df_pie, values='h', names='name', hole=0.6), use_container_width=True)
 
 # H. ADMIN
 elif selected == "Admin":
-    if st.button("📥 Backup JSON"):
+    if st.button("📥 Backup"):
         d = {t: run_query(f"SELECT * FROM {t}").to_dict(orient='records') for t in ['employees','projects','tasks','calendar','assignments','timesheets']}
-        st.download_button("Download", json.dumps(d), "backup.json")
-    up = st.file_uploader("📤 Restore JSON")
+        st.download_button("Download JSON", json.dumps(d), "backup.json")
+    up = st.file_uploader("📤 Restore")
     if up and st.button("Restore"):
-        for t, r in json.load(up).items(): pd.DataFrame(r).to_sql(t, conn, if_exists='append', index=False)
+        for t,r in json.load(up).items(): pd.DataFrame(r).to_sql(t, conn, if_exists='append', index=False)
         st.success("Restored")
