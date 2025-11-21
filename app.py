@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -31,12 +32,12 @@ def init_db():
     conn = sqlite3.connect('app_db_v2.db')
     c = conn.cursor()
     
-    # 1. Employees (Added Department)
+    # 1. Employees
     c.execute('''CREATE TABLE IF NOT EXISTS employees (
         id_emp TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT, 
         type TEXT, rate REAL, manager TEXT, res_manager TEXT, department TEXT)''')
     
-    # 2. Projects (budget_type changed to store string representation of list)
+    # 2. Projects
     c.execute('''CREATE TABLE IF NOT EXISTS projects (
         id_proj TEXT PRIMARY KEY, name TEXT, platform TEXT, product TEXT,
         capex_opex TEXT, budget REAL)''')
@@ -61,7 +62,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS timesheets (
         id INTEGER PRIMARY KEY AUTOINCREMENT, id_emp TEXT, month TEXT, hours REAL, id_proj TEXT)''')
 
-    # 8. Admin Lists (Dynamic dropdowns)
+    # 8. Admin Lists
     c.execute('''CREATE TABLE IF NOT EXISTS config_lists (
         category TEXT, value TEXT, UNIQUE(category, value))''')
 
@@ -310,8 +311,7 @@ elif selected == "Assignments":
             melted = edited_df.melt(id_vars=['Resource', 'Project'], var_name='week_start', value_name='percent')
             melted = melted[melted['percent'] > 0] # Store only positive assignments
             
-            # Clean old assignments for this range (Simplified: just delete and re-insert)
-            # In production, you'd be more careful.
+            # Clean old assignments for this range
             c = conn.cursor()
             for index, row in melted.iterrows():
                 c.execute("INSERT OR REPLACE INTO assignments (id_proj, id_emp, week_start, percent) VALUES (?,?,?,?)",
