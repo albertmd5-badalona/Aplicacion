@@ -7,7 +7,7 @@ import plotly.express as px
 from plotly.graph_objects import Figure
 import os
 
-# --- CONFIGURACIÓN DE COLORES Y ESTILO (USANDO TEXTO PARA EVITAR ERRORES) ---
+# --- CONFIGURACIÓN DE COLORES Y ESTILO ---
 C_PRIMARY = "indigo"
 C_SECONDARY = "#ECEFF1"
 C_BG = "white"
@@ -17,38 +17,42 @@ C_GREEN_WORK = "green"
 C_BLUE_VAC = "blue"
 C_GREY_HOL = "grey"
 
-# --- BASE DE DATOS ---
+# --- GESTIÓN DE BASE DE DATOS (CORREGIDO: CONEXIÓN POR DEMANDA) ---
+DB_FILE = "app_flet.db"
+
 def init_db():
-    conn = sqlite3.connect("app_flet.db", check_same_thread=False)
-    c = conn.cursor()
-    tables = {
-        'employees': ['id TEXT PRIMARY KEY', 'name TEXT', 'surname TEXT', 'rate REAL', 'dept TEXT'],
-        'projects': ['id TEXT PRIMARY KEY', 'name TEXT', 'budget REAL', 'type TEXT'],
-        'tasks': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'proj_id TEXT', 'name TEXT', 'assignee TEXT', 'start TEXT', 'end TEXT', 'progress INT'],
-        'calendar': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'emp_id TEXT', 'date TEXT', 'type TEXT'],
-        'assignments': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'proj_id TEXT', 'emp_id TEXT', 'week TEXT', 'percent INT'],
-        'timesheets': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'emp_id TEXT', 'month TEXT', 'hours REAL', 'proj_id TEXT']
-    }
-    for t, cols in tables.items():
-        c.execute(f"CREATE TABLE IF NOT EXISTS {t} ({', '.join(cols)})")
-    conn.commit()
-    return conn
+    # Abrimos y cerramos para inicializar
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        tables = {
+            'employees': ['id TEXT PRIMARY KEY', 'name TEXT', 'surname TEXT', 'rate REAL', 'dept TEXT'],
+            'projects': ['id TEXT PRIMARY KEY', 'name TEXT', 'budget REAL', 'type TEXT'],
+            'tasks': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'proj_id TEXT', 'name TEXT', 'assignee TEXT', 'start TEXT', 'end TEXT', 'progress INT'],
+            'calendar': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'emp_id TEXT', 'date TEXT', 'type TEXT'],
+            'assignments': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'proj_id TEXT', 'emp_id TEXT', 'week TEXT', 'percent INT'],
+            'timesheets': ['id INTEGER PRIMARY KEY AUTOINCREMENT', 'emp_id TEXT', 'month TEXT', 'hours REAL', 'proj_id TEXT']
+        }
+        for t, cols in tables.items():
+            c.execute(f"CREATE TABLE IF NOT EXISTS {t} ({', '.join(cols)})")
+        conn.commit()
 
-db = init_db()
+# Inicializar al arrancar
+init_db()
 
-# --- UTILIDADES ---
 def run_query(query, params=()):
     try:
-        return pd.read_sql(query, db, params=params)
+        with sqlite3.connect(DB_FILE) as conn:
+            return pd.read_sql(query, conn, params=params)
     except Exception as e:
-        print(f"Error DB: {e}")
+        print(f"Error Query: {e}")
         return pd.DataFrame()
 
 def run_action(query, params=()):
     try:
-        c = db.cursor()
-        c.execute(query, params)
-        db.commit()
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute(query, params)
+            conn.commit()
         return True
     except Exception as e:
         print(f"Error Action: {e}")
@@ -70,14 +74,26 @@ def Card(content):
 # --- VISTAS ---
 
 def view_employees(page):
+    # Inputs
     id_field = ft.TextField(label="ID", width=100, text_size=12)
     name_field = ft.TextField(label="Name", expand=True, text_size=12)
     last_field = ft.TextField(label="Surname", expand=True, text_size=12)
-    dept_field = ft.Dropdown(label="Dept", options=[ft.dropdown.Option("IT"), ft.dropdown.Option("HR"), ft.dropdown.Option("Ops")], width=100, text_size=12)
-    rate_field = ft.TextField(label="Rate €", width=80, text_size=12, keyboard_type="number")
+    dept_field = ft.Dropdown(
+        label="Dept", 
+        options=[ft.dropdown.Option("IT"), ft.dropdown.Option("HR"), ft.dropdown.Option("Ops")], 
+        width=100, text_size=12
+    )
+    # Quitamos keyboard_type para evitar errores de compatibilidad
+    rate_field = ft.TextField(label="Rate €", width=80, text_size=12) 
     
+    # Tabla
     grid = ft.DataTable(
-        columns=[ft.DataColumn(ft.Text("ID")), ft.DataColumn(ft.Text("Name")), ft.DataColumn(ft.Text("Dept")), ft.DataColumn(ft.Text("Rate"))],
+        columns=[
+            ft.DataColumn(ft.Text("ID")), 
+            ft.DataColumn(ft.Text("Name")), 
+            ft.DataColumn(ft.Text("Dept")), 
+            ft.DataColumn(ft.Text("Rate"))
+        ],
         rows=[]
     )
 
@@ -86,25 +102,48 @@ def view_employees(page):
         grid.rows.clear()
         for _, r in df.iterrows():
             grid.rows.append(ft.DataRow(cells=[
-                ft.DataCell(ft.Text(r['id'])), ft.DataCell(ft.Text(f"{r['name']} {r['surname']}")),
-                ft.DataCell(ft.Text(r['dept'])), ft.DataCell(ft.Text(str(r['rate'])))
+                ft.DataCell(ft.Text(str(r['id']))), 
+                ft.DataCell(ft.Text(f"{r['name']} {r['surname']}")),
+                ft.DataCell(ft.Text(str(r['dept']))), 
+                ft.DataCell(ft.Text(str(r['rate'])))
             ]))
         page.update()
 
     def save(e):
-        if id_field.value:
+        if not id_field.value:
+            page.snack_bar = ft.SnackBar(ft.Text("Error: ID is required"), bgcolor="red")
+            page.snack_bar.open = True
+            page.update()
+            return
+
+        try:
+            rt = float(rate_field.value) if rate_field.value else 0.0
             run_action("INSERT OR REPLACE INTO employees VALUES (?,?,?,?,?)", 
-                       (id_field.value, name_field.value, last_field.value, float(rate_field.value or 0), dept_field.value))
+                       (id_field.value, name_field.value, last_field.value, rt, dept_field.value))
+            
+            # Limpiar campos
+            id_field.value = ""
+            name_field.value = ""
+            last_field.value = ""
+            rate_field.value = ""
+            
             load_data()
+            
             page.snack_bar = ft.SnackBar(ft.Text("Employee Saved!"), bgcolor="green")
             page.snack_bar.open = True
             page.update()
+        except Exception as ex:
+            print(f"Error saving: {ex}")
 
+    # Cargar datos iniciales
     load_data()
+
     return ft.Column([
         Title("👥 Team Management"),
-        Card(ft.Row([id_field, name_field, last_field, dept_field, rate_field, 
-                     ft.ElevatedButton("Save", on_click=save, bgcolor=C_PRIMARY, color="white")], wrap=True)),
+        Card(ft.Row([
+            id_field, name_field, last_field, dept_field, rate_field, 
+            ft.ElevatedButton("Save", on_click=save, bgcolor=C_PRIMARY, color="white")
+        ], wrap=True)),
         Card(grid)
     ], scroll="auto")
 
@@ -126,25 +165,37 @@ def view_projects(page):
             gantt_chart.figure = Figure()
         page.update()
 
-    def add_project(e):
-        run_action("INSERT OR REPLACE INTO projects VALUES (?,?,?,?)", (p_id.value, p_name.value, float(p_bud.value or 0), p_type.value))
-        load_projects()
-    
-    proj_list = ft.ListView(height=200)
+    proj_list = ft.ListView(height=200, spacing=10)
     
     def load_projects():
         df = run_query("SELECT * FROM projects")
         proj_list.controls.clear()
         for _, r in df.iterrows():
+            pid = r['id']
             proj_list.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon("folder", color=C_PRIMARY),
-                    title=ft.Text(f"{r['name']} ({r['id']})"),
-                    subtitle=ft.Text(f"Budget: €{r['budget']}"),
-                    on_click=lambda e, pid=r['id']: load_gantt(pid)
+                ft.Container(
+                    content=ft.ListTile(
+                        leading=ft.Icon("folder", color=C_PRIMARY),
+                        title=ft.Text(f"{r['name']} ({pid})"),
+                        subtitle=ft.Text(f"Budget: €{r['budget']}"),
+                        on_click=lambda e, x=pid: load_gantt(x)
+                    ),
+                    bgcolor=C_SECONDARY, border_radius=5
                 )
             )
         page.update()
+
+    def add_project(e):
+        if p_id.value:
+            val = float(p_bud.value) if p_bud.value else 0.0
+            run_action("INSERT OR REPLACE INTO projects VALUES (?,?,?,?)", (p_id.value, p_name.value, val, p_type.value))
+            p_id.value = ""
+            p_name.value = ""
+            load_projects()
+        else:
+            page.snack_bar = ft.SnackBar(ft.Text("ID Required"), bgcolor="red")
+            page.snack_bar.open = True
+            page.update()
 
     load_projects()
 
@@ -159,19 +210,8 @@ def view_projects(page):
 
 def view_calendar(page):
     current_emp = ft.Dropdown(label="Select Resource", expand=True)
-    cal_container = ft.GridView(runs_count=4, max_extent=250, child_aspect_ratio=1.0, spacing=10, run_spacing=10, expand=True)
+    cal_container = ft.GridView(runs_count=4, max_extent=300, child_aspect_ratio=0.9, spacing=10, run_spacing=10, expand=True)
 
-    def toggle_date(date_str):
-        eid = current_emp.value
-        curr = run_query("SELECT type FROM calendar WHERE emp_id=? AND date=?", (eid, date_str))
-        if curr.empty:
-            run_action("INSERT INTO calendar (emp_id, date, type) VALUES (?,?,?)", (eid, date_str, "V"))
-        elif curr.iloc[0]['type'] == 'V':
-            run_action("UPDATE calendar SET type='H' WHERE emp_id=? AND date=?", (eid, date_str))
-        else:
-            run_action("DELETE FROM calendar WHERE emp_id=? AND date=?", (eid, date_str))
-        generate_calendar()
-    
     def generate_calendar(e=None):
         if not current_emp.value: return
         eid = current_emp.value
@@ -209,6 +249,7 @@ def view_calendar(page):
                                 width=25, height=25, bgcolor=color, border_radius=12.5, alignment=ft.alignment.center
                             )
                         elif not is_weekend:
+                             # Usamos un closure para capturar d_str correctamente
                              content = ft.Container(
                                 content=ft.Text(str(day), size=10, color="white", text_align="center"),
                                 width=25, height=25, bgcolor=C_GREEN_WORK, border_radius=12.5, alignment=ft.alignment.center,
@@ -225,6 +266,17 @@ def view_calendar(page):
                 padding=10, border=ft.border.all(1, "grey"), border_radius=8
             ))
         page.update()
+
+    def toggle_date(date_str):
+        eid = current_emp.value
+        curr = run_query("SELECT type FROM calendar WHERE emp_id=? AND date=?", (eid, date_str))
+        if curr.empty:
+            run_action("INSERT INTO calendar (emp_id, date, type) VALUES (?,?,?)", (eid, date_str, "V"))
+        elif curr.iloc[0]['type'] == 'V':
+            run_action("UPDATE calendar SET type='H' WHERE emp_id=? AND date=?", (eid, date_str))
+        else:
+            run_action("DELETE FROM calendar WHERE emp_id=? AND date=?", (eid, date_str))
+        generate_calendar()
 
     def load_emps():
         df = run_query("SELECT id, name FROM employees")
@@ -266,7 +318,9 @@ def view_planning(page):
 
         df_e = run_query("SELECT id, name FROM employees")
         df_p = run_query("SELECT id, name FROM projects")
-        if df_e.empty or df_p.empty: return
+        if df_e.empty or df_p.empty: 
+            rows_container.controls.append(ft.Text("Add employees and projects first."))
+            return
 
         for _, emp in df_e.iterrows():
             for _, proj in df_p.iterrows():
@@ -278,8 +332,11 @@ def view_planning(page):
                     val = ""
                     exist = run_query("SELECT percent FROM assignments WHERE emp_id=? AND proj_id=? AND week=?", (emp['id'], proj['id'], w))
                     if not exist.empty: val = str(exist.iloc[0]['percent'])
-                    txt = ft.TextField(value=val, width=55, height=30, text_size=11, content_padding=5, 
-                                       on_blur=lambda e, ep=emp['id'], pj=proj['id'], wk=w: update_cell(ep, pj, wk, e.control.value))
+                    
+                    txt = ft.TextField(
+                        value=val, width=55, height=30, text_size=11, content_padding=5, 
+                        on_blur=lambda e, ep=emp['id'], pj=proj['id'], wk=w: update_cell(ep, pj, wk, e.control.value)
+                    )
                     row_ctrls.append(ft.Container(width=60, content=txt))
                 rows_container.controls.append(ft.Row(row_ctrls))
         page.update()
@@ -324,6 +381,5 @@ def main(page: ft.Page):
     page.add(main_content)
 
 if __name__ == "__main__":
-    # CONFIGURACIÓN PARA RENDER (0.0.0.0 Y PUERTO DINÁMICO)
     port = int(os.environ.get("PORT", 8080))
     ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=port, host="0.0.0.0")
