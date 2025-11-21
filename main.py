@@ -1,3 +1,4 @@
+import os
 import flet as ft
 import sqlite3
 import pandas as pd
@@ -359,6 +360,20 @@ def main(page: ft.Page):
     
     page.add(main_content)
 
+import os # <--- Asegúrate de importar os arriba del todo del archivo
+
+# ... todo tu código anterior ...
+
 if __name__ == "__main__":
+    # Obtenemos el puerto de la nube o usamos 8080 por defecto
+    port = int(os.environ.get("PORT", 8080))
+    
+    # Ejecutamos la app directamente
+    ft.app(
+        target=main, 
+        view=ft.AppView.WEB_BROWSER, 
+        port=port, 
+        host="0.0.0.0"
+    )
     # Ejecutar en modo escritorio o web
     ft.app(target=main, view=ft.AppView.WEB_BROWSER)

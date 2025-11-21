@@ -6,14 +6,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiamos el resto del código
+# Copiamos el código
 COPY . .
 
-# IMPORTANTE: Render nos da un puerto en la variable de entorno PORT.
-# Si no existe, usamos el 8080.
-ENV FLET_SERVER_PORT=8080
-ENV FLET_FORCE_WEB_SERVER=1
+# Render necesita saber que exponemos este puerto (aunque usaremos la variable de entorno)
+EXPOSE 8080
 
-# Comando para arrancar. 
-# --host 0.0.0.0 es OBLIGATORIO para que se vea desde fuera.
-CMD flet run main.py --port ${PORT:-8080} --web --host 0.0.0.0
+# COMANDO IMPORTANTE:
+# Usamos 'python' directo en lugar de 'flet run'.
+# Esto evita el error de flet_desktop.
+CMD ["python", "main.py"]
